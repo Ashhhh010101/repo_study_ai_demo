@@ -1,0 +1,53 @@
+# Environment files
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+dist/
+build/
+coverage/
+.vite/
+
+# Python / backend
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Local app data
+backend/repo_study_ai.db
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/data/
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local archives and temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.zip
+*.tar
+*.tar.gz
