@@ -11,6 +11,7 @@ dist/
 build/
 coverage/
 .vite/
+*.tsbuildinfo
 
 # Python / backend
 __pycache__/
