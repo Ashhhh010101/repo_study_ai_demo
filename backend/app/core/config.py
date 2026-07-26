@@ -11,15 +11,30 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("./data"))
     repos_dir: Path = Field(default=Path("./data/repos"))
     vector_store_dir: Path = Field(default=Path("./data/vector_store"))
-    max_file_size_bytes: int = 512_000
-    max_chunk_chars: int = 4_000
-    request_timeout_seconds: int = 90
+    max_file_size_bytes: int = Field(default=512_000, ge=1_024, le=5_000_000)
+    max_scanned_files: int = Field(default=5_000, ge=1, le=50_000)
+    max_total_scan_bytes: int = Field(
+        default=50_000_000,
+        ge=10_000,
+        le=500_000_000,
+    )
+    max_chunk_chars: int = Field(default=4_000, ge=500, le=20_000)
+    analysis_max_workers: int = Field(default=4, ge=1, le=16)
+    request_timeout_seconds: int = Field(default=90, ge=5, le=600)
+    clone_timeout_seconds: int = Field(default=180, ge=10, le=1_800)
     gemini_model: str = "gemini-2.5-flash"
+    gemini_max_output_tokens: int = Field(default=8_192, ge=256, le=65_536)
+    cors_origins: list[str] = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ]
+    allowed_hosts: list[str] = ["127.0.0.1", "localhost", "testserver"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
 

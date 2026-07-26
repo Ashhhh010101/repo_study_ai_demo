@@ -1,13 +1,15 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class RepoAnalyzeRequest(BaseModel):
-    repo_url: str
-    branch: str | None = None
-    gemini_api_key: str = Field(min_length=10)
+    repo_url: str = Field(min_length=19, max_length=500)
+    branch: str | None = Field(default=None, max_length=255)
+    gemini_api_key: SecretStr = Field(min_length=10, max_length=512)
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class RepoProjectResponse(BaseModel):
@@ -15,7 +17,6 @@ class RepoProjectResponse(BaseModel):
     repo_url: str
     repo_name: str
     branch: str | None
-    local_path: str
     status: str
     error_message: str | None
     created_at: datetime

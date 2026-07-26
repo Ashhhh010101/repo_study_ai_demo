@@ -30,7 +30,6 @@ export type RepoProject = {
   repo_url: string;
   repo_name: string;
   branch: string | null;
-  local_path: string;
   status: string;
   error_message: string | null;
   created_at: string;

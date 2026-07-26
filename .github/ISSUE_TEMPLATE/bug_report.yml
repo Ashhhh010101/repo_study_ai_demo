@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem that is not a security vulnerability.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, repository secrets, local paths, databases, or private code.
+        Report security issues through the private process in SECURITY.md.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide minimal, sanitized steps using a public repository.
+      placeholder: |
+        1. Start...
+        2. Analyze...
+        3. Observe...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Frontend
+        - Backend API
+        - Repository scanner
+        - Report generation
+        - Retrieval / chat
+        - Documentation / CI
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, Node version, and browser when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized diagnostics
+      description: Remove provider keys, tokens, credentials, private code, and local filesystem paths.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed all credentials, secrets, private code, and sensitive local data.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

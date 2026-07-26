@@ -1,6 +1,10 @@
 import json
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from pydantic import SecretStr
+
+from app.core.config import get_settings
 from app.repo_analyzer.prompt_manager import (
     ARCHITECTURE_REPORT_PROMPT,
     FILE_SUMMARY_PROMPT,
@@ -18,8 +22,9 @@ from app.services.llm_service import LLMService
 class ReportService:
     def __init__(self, llm_service: LLMService | None = None) -> None:
         self.llm_service = llm_service or LLMService()
+        self.settings = get_settings()
 
-    def summarize_file(self, file_metadata: dict, gemini_api_key: str) -> dict:
+    def summarize_file(self, file_metadata: dict, gemini_api_key: SecretStr) -> dict:
         prompt = FILE_SUMMARY_PROMPT.format(
             file_path=file_metadata["path"],
             language=file_metadata["language"],
@@ -37,14 +42,41 @@ class ReportService:
                 "notes": "LLM summary failed or returned invalid JSON.",
             }
 
-    def summarize_folders(self, file_summaries: list[dict], gemini_api_key: str) -> dict:
+    def summarize_files(self, files: list[dict], gemini_api_key: SecretStr) -> list[dict]:
+        max_workers = min(self.settings.analysis_max_workers, len(files))
+        if max_workers <= 1:
+            return [
+                {
+                    "path": file_metadata["path"],
+                    "importance_score": file_metadata["importance_score"],
+                    "summary_json": self.summarize_file(file_metadata, gemini_api_key),
+                }
+                for file_metadata in files
+            ]
+
+        results: list[dict | None] = [None] * len(files)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_index = {
+                executor.submit(self.summarize_file, file_metadata, gemini_api_key): index
+                for index, file_metadata in enumerate(files)
+            }
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                file_metadata = files[index]
+                results[index] = {
+                    "path": file_metadata["path"],
+                    "importance_score": file_metadata["importance_score"],
+                    "summary_json": future.result(),
+                }
+        return [result for result in results if result is not None]
+
+    def summarize_folders(self, file_summaries: list[dict], gemini_api_key: SecretStr) -> dict:
         folders: dict[str, list[dict]] = defaultdict(list)
         for item in file_summaries:
             folder = item["path"].rsplit("/", 1)[0] if "/" in item["path"] else "."
             folders[folder].append(item)
 
-        results = {}
-        for folder_path, items in folders.items():
+        def summarize_folder(folder_path: str, items: list[dict]) -> tuple[str, dict]:
             prompt = FOLDER_SUMMARY_PROMPT.format(
                 folder_path=folder_path,
                 files="\n".join(item["path"] for item in items),
@@ -61,9 +93,27 @@ class ReportService:
             )
             try:
                 raw = self.llm_service.generate_text(prompt, gemini_api_key, "application/json")
-                results[folder_path] = json.loads(raw)
+                return folder_path, json.loads(raw)
             except Exception:
-                results[folder_path] = summarize_folder_from_files(folder_path, items)
+                return folder_path, summarize_folder_from_files(folder_path, items)
+
+        results = {}
+        folder_items = list(folders.items())
+        max_workers = min(self.settings.analysis_max_workers, len(folder_items))
+        if max_workers <= 1:
+            for folder_path, items in folder_items:
+                result_path, result = summarize_folder(folder_path, items)
+                results[result_path] = result
+            return results
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(summarize_folder, folder_path, items)
+                for folder_path, items in folder_items
+            ]
+            for future in as_completed(futures):
+                folder_path, result = future.result()
+                results[folder_path] = result
         return results
 
     def generate_repo_report(
@@ -74,7 +124,7 @@ class ReportService:
         important_files: list[dict],
         folder_summaries: dict,
         readme_summary: dict | None,
-        gemini_api_key: str,
+        gemini_api_key: SecretStr,
     ) -> dict:
         context = build_report_context(
             repo_name=repo_name,

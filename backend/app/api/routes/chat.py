@@ -5,7 +5,7 @@ from app.db import models
 from app.db.session import get_db
 from app.repo_analyzer.prompt_manager import REPO_QA_PROMPT
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.llm_service import LLMService
+from app.services.llm_service import LLMService, ProviderError
 from app.services.retrieval_service import RetrievalService
 
 router = APIRouter()
@@ -60,11 +60,8 @@ def chat_with_repo(project_id: int, payload: ChatRequest, db: Session = Depends(
     llm_service = LLMService()
     try:
         answer = llm_service.generate_text(prompt, payload.gemini_api_key)
-    except Exception:
-        answer = (
-            "Insufficient LLM response. Review the referenced files and report context below. "
-            "This fallback avoids guessing."
-        )
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     db.add(
         models.ChatMessage(

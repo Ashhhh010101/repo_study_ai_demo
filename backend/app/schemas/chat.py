@@ -1,12 +1,14 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1)
-    gemini_api_key: str = Field(min_length=10)
+    message: str = Field(min_length=1, max_length=4_000)
+    gemini_api_key: SecretStr = Field(min_length=10, max_length=512)
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class ChatResponse(BaseModel):

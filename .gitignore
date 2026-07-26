@@ -11,6 +11,7 @@ dist/
 build/
 coverage/
 .vite/
+*.timestamp-*.mjs
 *.tsbuildinfo
 
 # Python / backend
@@ -22,6 +23,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+.hypothesis/
 .venv/
 venv/
 env/
@@ -32,6 +34,9 @@ backend/*.db
 backend/*.sqlite
 backend/*.sqlite3
 backend/data/
+backend/test_data/
+backend/tests/runtime/
+backend/test_*.db
 
 # Logs and runtime files
 *.log
@@ -52,3 +57,17 @@ Thumbs.db
 *.zip
 *.tar
 *.tar.gz
+
+# Credentials and key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.netrc
+.npmrc
+.pypirc
+
+# Accidental local command output
+/cls

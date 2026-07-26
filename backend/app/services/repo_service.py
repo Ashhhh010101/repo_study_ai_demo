@@ -1,12 +1,18 @@
+from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db import models
 from app.repo_analyzer.chunker import chunk_file
-from app.repo_analyzer.cloner import clone_public_repo, validate_github_url
+from app.repo_analyzer.cloner import (
+    CloneError,
+    clone_public_repo,
+    validate_branch_name,
+    validate_github_url,
+)
 from app.repo_analyzer.context_builder import build_file_tree
 from app.repo_analyzer.importance_ranker import rank_files
-from app.repo_analyzer.scanner import scan_repository
+from app.repo_analyzer.scanner import ScanLimitError, scan_repository
 from app.repo_analyzer.stack_detector import detect_stack
 from app.services.embedding_service import EmbeddingService
 from app.services.report_service import ReportService
@@ -32,10 +38,18 @@ class RepoService:
         db.commit()
         db.refresh(project)
 
-    def analyze_repository(self, db: Session, repo_url: str, branch: str | None, gemini_api_key: str) -> tuple[models.RepoProject, models.RepoAnalysis]:
-        _, repo_name = validate_github_url(repo_url)
+    def analyze_repository(
+        self,
+        db: Session,
+        repo_url: str,
+        branch: str | None,
+        gemini_api_key: SecretStr,
+    ) -> tuple[models.RepoProject, models.RepoAnalysis]:
+        owner, repo_name = validate_github_url(repo_url)
+        branch = validate_branch_name(branch)
+        canonical_repo_url = f"https://github.com/{owner}/{repo_name}"
         project = models.RepoProject(
-            repo_url=repo_url,
+            repo_url=canonical_repo_url,
             repo_name=repo_name,
             branch=branch,
             local_path="",
@@ -48,7 +62,12 @@ class RepoService:
         try:
             self._set_status(db, project, "cloning")
             local_path = self.local_repo_store.get_project_repo_path(project.id)
-            clone_public_repo(repo_url, local_path, branch=branch)
+            clone_public_repo(
+                canonical_repo_url,
+                local_path,
+                branch=branch,
+                timeout_seconds=self.settings.clone_timeout_seconds,
+            )
             project.local_path = str(local_path)
             db.add(project)
             db.commit()
@@ -58,6 +77,8 @@ class RepoService:
             scanned_files = scan_repository(
                 local_path,
                 max_file_size_bytes=self.settings.max_file_size_bytes,
+                max_files=self.settings.max_scanned_files,
+                max_total_bytes=self.settings.max_total_scan_bytes,
             )
             ranked_files = rank_files(scanned_files)
             stack = detect_stack(ranked_files)
@@ -115,16 +136,7 @@ class RepoService:
 
             self._set_status(db, project, "analyzing")
             important_files = ranked_files[:12]
-            file_summaries = []
-            for file_metadata in important_files:
-                summary_json = self.report_service.summarize_file(file_metadata, gemini_api_key)
-                file_summaries.append(
-                    {
-                        "path": file_metadata["path"],
-                        "importance_score": file_metadata["importance_score"],
-                        "summary_json": summary_json,
-                    }
-                )
+            file_summaries = self.report_service.summarize_files(important_files, gemini_api_key)
             folder_summaries = self.report_service.summarize_folders(file_summaries, gemini_api_key)
             readme_summary = next(
                 (item["summary_json"] for item in file_summaries if item["path"].lower() == "readme.md"),
@@ -155,5 +167,9 @@ class RepoService:
             self._set_status(db, project, "completed")
             return project, analysis
         except Exception as exc:
-            self._set_status(db, project, "failed", str(exc))
+            if isinstance(exc, (CloneError, ScanLimitError)):
+                safe_error = str(exc)
+            else:
+                safe_error = "Repository analysis failed. Review the backend logs for details."
+            self._set_status(db, project, "failed", safe_error)
             raise

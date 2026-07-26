@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.db.session import get_db
+from app.repo_analyzer.cloner import CloneError
 from app.repo_analyzer.context_builder import build_file_tree
+from app.repo_analyzer.scanner import ScanLimitError
 from app.schemas.repo import (
     AnalyzeResponse,
     RepoAnalysisResponse,
@@ -19,12 +21,15 @@ router = APIRouter()
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
     service = RepoService()
-    project, analysis = service.analyze_repository(
-        db=db,
-        repo_url=payload.repo_url,
-        branch=payload.branch,
-        gemini_api_key=payload.gemini_api_key,
-    )
+    try:
+        project, analysis = service.analyze_repository(
+            db=db,
+            repo_url=payload.repo_url,
+            branch=payload.branch,
+            gemini_api_key=payload.gemini_api_key,
+        )
+    except (CloneError, ScanLimitError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return AnalyzeResponse(
         project_id=project.id,
         status=project.status,
@@ -50,6 +55,10 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{project_id}/files")
 def get_project_files(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(models.RepoProject).filter(models.RepoProject.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     files = (
         db.query(models.RepoFile)
         .filter(models.RepoFile.project_id == project_id)
