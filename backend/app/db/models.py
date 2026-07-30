@@ -18,6 +18,7 @@ class RepoProject(Base, TimestampMixin):
     repo_url: Mapped[str] = mapped_column(String(500), nullable=False)
     repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
     branch: Mapped[str | None] = mapped_column(String(255))
+    commit: Mapped[str | None] = mapped_column(String(40))
     local_path: Mapped[str] = mapped_column(String(500), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     error_message: Mapped[str | None] = mapped_column(Text)

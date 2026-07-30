@@ -43,6 +43,7 @@ def clone_public_repo(
     destination: Path,
     branch: str | None = None,
     force_refresh: bool = False,
+    commit: str | None = None,
     timeout_seconds: int = 180,
 ) -> Path:
     owner, repo = validate_github_url(repo_url)
@@ -51,9 +52,12 @@ def clone_public_repo(
     if destination.exists() and force_refresh:
         shutil.rmtree(destination)
 
-    if destination.exists() and any(destination.iterdir()):
+    marker = destination / ".repo-study-meta.json"
+    if destination.exists() and marker.exists() and not force_refresh:
         return destination
 
+    if destination.exists():
+        shutil.rmtree(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     command = [
         "git",
@@ -98,4 +102,11 @@ def clone_public_repo(
         raise CloneError(
             "Unable to clone the repository. Verify that it is public and the branch exists."
         ) from exc
+    if commit:
+        try:
+            subprocess.run(["git", "-C", str(destination), "fetch", "--depth", "1", "origin", commit], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(destination), "checkout", "--detach", commit], check=True, capture_output=True)
+        except subprocess.CalledProcessError as exc:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise CloneError("The requested commit is not available in the selected shallow clone.") from exc
     return destination

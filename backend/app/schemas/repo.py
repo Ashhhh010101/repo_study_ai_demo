@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 class RepoAnalyzeRequest(BaseModel):
     repo_url: str = Field(min_length=19, max_length=500)
     branch: str | None = Field(default=None, max_length=255)
+    commit: str | None = Field(default=None, min_length=7, max_length=40, pattern=r"^[0-9a-fA-F]+$")
     gemini_api_key: SecretStr = Field(min_length=10, max_length=512)
 
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -17,6 +18,7 @@ class RepoProjectResponse(BaseModel):
     repo_url: str
     repo_name: str
     branch: str | None
+    commit: str | None
     status: str
     error_message: str | None
     created_at: datetime

@@ -6,6 +6,7 @@ type RepoInputProps = {
   onSubmit: (payload: {
     repo_url: string;
     branch?: string;
+    commit?: string;
     gemini_api_key: string;
   }) => Promise<void>;
   loading: boolean;
@@ -14,6 +15,7 @@ type RepoInputProps = {
 export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("");
+  const [commit, setCommit] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -26,6 +28,7 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
     await onSubmit({
       repo_url: repoUrl.trim(),
       branch: branch.trim() || undefined,
+      commit: commit.trim() || undefined,
       gemini_api_key: apiKey.trim()
     });
   }
@@ -42,6 +45,16 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
             <h2 className="text-sm font-semibold text-ink">Start an analysis</h2>
           </div>
           <p className="mt-1.5 text-xs leading-5 text-muted">Map a public GitHub repository.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="commit" className="field-label">Commit</label>
+            <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted">optional</span>
+          </div>
+          <input id="commit" value={commit} onChange={(event) => setCommit(event.target.value)}
+            placeholder="full or abbreviated commit SHA" className="field-input font-mono" maxLength={40}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={loading} />
         </div>
         <span className="rounded-md border border-cyan/20 bg-cyan/5 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-cyan">
           Gemini · BYOK
@@ -146,8 +159,9 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
             required
           />
           <span className="text-[11px] leading-5 text-muted">
-            I understand that selected public repository content is sent to Gemini for analysis. The key itself is
-            never stored by this app.
+            I understand that selected public repository content is sent to Gemini for analysis. My key is sent only
+            in the request header, held transiently in browser/backend memory, never written to storage or logs, and
+            discarded when the request/UI session ends or I clear it. Provider retention and billing policies still apply.
           </span>
         </label>
 

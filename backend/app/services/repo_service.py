@@ -43,15 +43,18 @@ class RepoService:
         db: Session,
         repo_url: str,
         branch: str | None,
+        commit: str | None,
         gemini_api_key: SecretStr,
     ) -> tuple[models.RepoProject, models.RepoAnalysis]:
         owner, repo_name = validate_github_url(repo_url)
         branch = validate_branch_name(branch)
+        commit = commit.lower() if commit else None
         canonical_repo_url = f"https://github.com/{owner}/{repo_name}"
         project = models.RepoProject(
             repo_url=canonical_repo_url,
             repo_name=repo_name,
             branch=branch,
+            commit=commit,
             local_path="",
             status="pending",
         )
@@ -61,13 +64,11 @@ class RepoService:
 
         try:
             self._set_status(db, project, "cloning")
-            local_path = self.local_repo_store.get_project_repo_path(project.id)
-            clone_public_repo(
-                canonical_repo_url,
-                local_path,
-                branch=branch,
-                timeout_seconds=self.settings.clone_timeout_seconds,
-            )
+            cache_key = self.local_repo_store.get_repo_key(canonical_repo_url, branch, commit)
+            local_path = self.local_repo_store.get_repo_path(canonical_repo_url, branch, commit)
+            with self.local_repo_store.lock_for(cache_key):
+                clone_public_repo(canonical_repo_url, local_path, branch=branch, commit=commit, timeout_seconds=self.settings.clone_timeout_seconds)
+                self.local_repo_store.write_metadata(local_path, canonical_repo_url, branch, commit)
             project.local_path = str(local_path)
             db.add(project)
             db.commit()

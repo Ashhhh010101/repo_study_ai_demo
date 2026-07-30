@@ -1,6 +1,7 @@
 export type RepoAnalyzeRequest = {
   repo_url: string;
   branch?: string;
+  commit?: string;
   gemini_api_key: string;
 };
 

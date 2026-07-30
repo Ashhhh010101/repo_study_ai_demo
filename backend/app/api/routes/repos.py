@@ -26,10 +26,13 @@ def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
             db=db,
             repo_url=payload.repo_url,
             branch=payload.branch,
+            commit=payload.commit,
             gemini_api_key=payload.gemini_api_key,
         )
     except (CloneError, ScanLimitError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Repository analysis failed. Review backend logs.") from exc
     return AnalyzeResponse(
         project_id=project.id,
         status=project.status,
