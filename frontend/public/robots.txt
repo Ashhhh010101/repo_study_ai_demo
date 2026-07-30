@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://repo-study-ai-demo-kohl.vercel.app/sitemap.xml

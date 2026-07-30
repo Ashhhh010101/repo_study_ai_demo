@@ -120,3 +120,11 @@ class ChatMessage(Base, TimestampMixin):
     used_chunks_json: Mapped[list] = mapped_column(JSON, default=list)
 
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
+
+
+class AnalyticsEvent(Base, TimestampMixin):
+    __tablename__ = "analytics_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    repo_url: Mapped[str | None] = mapped_column(String(500))

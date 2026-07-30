@@ -51,10 +51,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(await getErrorMessage(response));
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 }
 
 export const apiClient = {
+  recordVisit() {
+    return request<void>("/api/stats/visit", { method: "POST" });
+  },
   analyzeRepo(payload: RepoAnalyzeRequest) {
     return request<AnalyzeResponse>("/api/repos/analyze", {
       method: "POST",

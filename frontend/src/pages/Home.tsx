@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { apiClient } from "../api/client";
 import AppHeader from "../components/AppHeader";
@@ -42,6 +42,10 @@ export default function Home() {
     "Cloning, scanning, indexing, and building your architecture brief."
   );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void apiClient.recordVisit().catch(() => undefined);
+  }, []);
 
   async function handleAnalyze(payload: {
     repo_url: string;

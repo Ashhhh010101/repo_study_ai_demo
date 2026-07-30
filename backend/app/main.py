@@ -12,7 +12,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
 
-from app.api.routes import chat, repos
+from app.api.routes import chat, repos, stats
 from app.core.config import get_settings
 from app.db.init_db import init_db
 
@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
 
     app.include_router(repos.router, prefix="/api/repos", tags=["repos"])
     app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+    app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
     return app
 
 
