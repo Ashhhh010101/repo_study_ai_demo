@@ -40,7 +40,6 @@ class RepoService:
         db.add(project)
         db.commit()
         db.refresh(project)
-        self.logger.info("Analysis project created project_id=%s repo=%s", project.id, repo_name)
 
     def analyze_repository(
         self,
@@ -71,6 +70,7 @@ class RepoService:
         db.add(project)
         db.commit()
         db.refresh(project)
+        self.logger.info("Analysis project created project_id=%s repo=%s", project.id, repo_name)
 
         try:
             self._set_status(db, project, "cloning")
@@ -106,8 +106,6 @@ class RepoService:
             db.query(models.CodeChunk).filter(models.CodeChunk.project_id == project.id).delete()
             db.query(models.RepoAnalysis).filter(models.RepoAnalysis.project_id == project.id).delete()
             db.commit()
-            self.logger.info("analysis.step project_id=%s step=persist_files status=complete files=%s", project.id, len(file_records_by_path))
-
             file_records_by_path: dict[str, models.RepoFile] = {}
             for file_metadata in ranked_files:
                 file_record = models.RepoFile(
@@ -123,6 +121,7 @@ class RepoService:
                 db.flush()
                 file_records_by_path[file_metadata["path"]] = file_record
             db.commit()
+            self.logger.info("analysis.step project_id=%s step=persist_files status=complete files=%s", project.id, len(file_records_by_path))
 
             self._set_status(db, project, "indexing")
             step_started = time.perf_counter()
