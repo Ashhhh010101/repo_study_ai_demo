@@ -82,7 +82,7 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
             autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={loading} />
         </div>
         <span className="rounded-md border border-cyan/20 bg-cyan/5 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-cyan">
-          Gemini · BYOK
+          BYOK
         </span>
       </div>
 
