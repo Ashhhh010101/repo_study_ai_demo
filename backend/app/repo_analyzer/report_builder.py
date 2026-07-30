@@ -38,19 +38,44 @@ def build_report_context(
     return json.dumps(payload, indent=2)
 
 
+def _section(markdown_report: str, heading: str, fallback: str) -> str:
+    """Extract a numbered markdown section without exposing UI placeholder text."""
+    lines = markdown_report.splitlines()
+    start = next(
+        (index for index, line in enumerate(lines) if line.strip().lower().startswith(heading.lower())),
+        None,
+    )
+    if start is None:
+        return fallback
+
+    content: list[str] = []
+    for line in lines[start + 1:]:
+        if line.startswith("## ") or line.startswith("# "):
+            break
+        content.append(line)
+    value = "\n".join(content).strip()
+    return value or fallback
+
+
 def derive_report_fields(markdown_report: str, stack: dict, folder_summaries: dict, important_files: list[dict]) -> dict:
     reading_order = [{"path": item["path"], "why": "High-signal entry point or core module"} for item in important_files[:8]]
+    overview = _section(markdown_report, "1. Project Overview", "The report did not contain a project overview.")
+    architecture = _section(markdown_report, "4. Runtime Architecture and Component Responsibilities", "The report did not contain a runtime architecture section.")
+    request_flow = _section(markdown_report, "5. End-to-End Request and Data Flows", "The report did not contain a request and data flow section.")
+    data_flow = _section(markdown_report, "8. Data Model, Persistence, Caching, and Indexing", "The report did not contain a data and persistence section.")
+    setup = _section(markdown_report, "16. How To Run Locally", "The report did not contain local run instructions.")
+    risks = _section(markdown_report, "18. Risks, Trade-offs, and Unknowns", "The report did not contain a risks and unknowns section.")
     return {
-        "overview": markdown_report.split("\n", 8)[0].replace("#", "").strip(),
+        "overview": overview,
         "tech_stack_json": stack,
-        "architecture_summary": "See generated markdown report for the consolidated architecture summary.",
+        "architecture_summary": architecture,
         "folder_summary_json": folder_summaries,
         "important_files_json": important_files[:12],
-        "request_flow": "See Backend Flow and Frontend Flow sections in the generated report.",
-        "data_flow": "See Database Flow and architecture sections in the generated report.",
-        "setup_instructions": "See How To Run Locally section in the generated report.",
+        "request_flow": request_flow,
+        "data_flow": data_flow,
+        "setup_instructions": setup,
         "reading_order_json": reading_order,
-        "risks": "Review the Risks / Unknowns section in the generated report.",
+        "risks": risks,
         "generated_report_markdown": markdown_report,
     }
 

@@ -67,6 +67,15 @@ Return markdown with these sections:
 18. Risks, Trade-offs, and Unknowns
 19. Developer Onboarding Notes
 
+Completeness requirements:
+- Return every section above, in the same order, using the exact numbered headings.
+- Never write placeholder text such as "TBD", "TODO", "N/A", "Not available", "See report", or "add details here".
+- When evidence is missing, write a specific statement explaining what was checked and what cannot be confirmed.
+- Do not omit a section because the repository is small or because the evidence is incomplete.
+- Include concrete file paths, symbols, routes, commands, configuration keys, and data stores whenever they are present in the context.
+- Keep confirmed facts separate from inferences; label inferences explicitly.
+- Before finishing, silently check that all 19 headings are present and that each contains repository-specific content.
+
 For every major component cover: responsibility, inputs/outputs, dependencies, persistence, control flow,
 security boundary, failure behavior, and evidence paths. Include a concise text architecture diagram and
 clearly distinguish confirmed behavior from inference. Never fill space with generic textbook explanations.
