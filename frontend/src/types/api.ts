@@ -3,6 +3,8 @@ export type RepoAnalyzeRequest = {
   branch?: string;
   commit?: string;
   gemini_api_key: string;
+  model?: string;
+  provider?: "gemini" | "openai" | "anthropic";
 };
 
 export type RepoFile = {
@@ -61,6 +63,8 @@ export type AnalyzeResponse = {
 export type ChatRequest = {
   message: string;
   gemini_api_key: string;
+  model?: string;
+  provider?: "gemini" | "openai" | "anthropic";
 };
 
 export type ChatResponse = {

@@ -28,6 +28,7 @@ export default function RepoReport({ projectId }: { projectId: string }) {
   const [tree, setTree] = useState<FileTreeNode[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [model, setModel] = useState("gemini-2.5-flash");
 
   useEffect(() => {
     let active = true;
@@ -105,6 +106,7 @@ export default function RepoReport({ projectId }: { projectId: string }) {
     return apiClient.askQuestion(projectId, {
       message,
       gemini_api_key: apiKey
+      , model
     });
   }
 

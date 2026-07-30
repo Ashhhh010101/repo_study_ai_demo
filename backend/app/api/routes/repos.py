@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -16,10 +17,12 @@ from app.schemas.repo import (
 from app.services.repo_service import RepoService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
+    logger.info("Analysis requested provider=%s model=%s branch=%s pinned_commit=%s", payload.provider, payload.model or "default", payload.branch or "default", bool(payload.commit))
     service = RepoService()
     try:
         project, analysis = service.analyze_repository(
@@ -27,11 +30,15 @@ def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
             repo_url=payload.repo_url,
             branch=payload.branch,
             commit=payload.commit,
+            model=payload.model,
+            provider=payload.provider,
             gemini_api_key=payload.gemini_api_key,
         )
     except (CloneError, ScanLimitError) as exc:
+        logger.warning("Analysis rejected: %s", str(exc))
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Unexpected analysis failure")
         raise HTTPException(status_code=500, detail="Repository analysis failed. Review backend logs.") from exc
     return AnalyzeResponse(
         project_id=project.id,

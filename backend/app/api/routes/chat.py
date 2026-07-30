@@ -59,7 +59,7 @@ def chat_with_repo(project_id: int, payload: ChatRequest, db: Session = Depends(
 
     llm_service = LLMService()
     try:
-        answer = llm_service.generate_text(prompt, payload.gemini_api_key)
+        answer = llm_service.generate_text(prompt, payload.gemini_api_key, model=payload.model, provider=payload.provider)
     except ProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

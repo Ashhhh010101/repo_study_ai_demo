@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+import logging
 from pathlib import Path
 
 
@@ -13,6 +14,9 @@ BRANCH_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$")
 
 class CloneError(Exception):
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 def validate_github_url(repo_url: str) -> tuple[str, str]:
@@ -54,6 +58,7 @@ def clone_public_repo(
 
     marker = destination / ".repo-study-meta.json"
     if destination.exists() and marker.exists() and not force_refresh:
+        logger.info("Using cached repository path=%s", destination)
         return destination
 
     if destination.exists():
@@ -82,6 +87,7 @@ def clone_public_repo(
     )
 
     try:
+        logger.info("Cloning repository branch=%s pinned_commit=%s", branch or "default", bool(commit))
         subprocess.run(
             command,
             check=True,
@@ -91,12 +97,14 @@ def clone_public_repo(
             env=git_env,
         )
     except subprocess.TimeoutExpired as exc:
+        logger.warning("Repository clone timed out")
         if destination.exists():
             shutil.rmtree(destination)
         raise CloneError(
             "Repository cloning timed out. Try a smaller repository or increase the configured limit."
         ) from exc
     except subprocess.CalledProcessError as exc:
+        logger.warning("Repository clone failed")
         if destination.exists():
             shutil.rmtree(destination)
         raise CloneError(

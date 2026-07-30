@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -12,11 +13,17 @@ from app.api.routes import chat, repos
 from app.core.config import get_settings
 from app.db.init_db import init_db
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("repo_study_ai")
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    logger.info("Starting application")
     init_db()
+    logger.info("Database initialized")
     yield
+    logger.info("Stopping application")
 
 
 def create_app() -> FastAPI:

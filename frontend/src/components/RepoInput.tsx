@@ -8,6 +8,7 @@ type RepoInputProps = {
     branch?: string;
     commit?: string;
     gemini_api_key: string;
+    model?: string;
   }) => Promise<void>;
   loading: boolean;
 };
@@ -17,6 +18,9 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
   const [branch, setBranch] = useState("");
   const [commit, setCommit] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("gemini-3.5-flash");
+  const [customModel, setCustomModel] = useState("");
+  const [provider, setProvider] = useState<"gemini" | "openai" | "anthropic">("gemini");
   const [showKey, setShowKey] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -30,6 +34,7 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
       branch: branch.trim() || undefined,
       commit: commit.trim() || undefined,
       gemini_api_key: apiKey.trim()
+      , model: model === "custom" ? customModel.trim() : model, provider
     });
   }
 
@@ -39,6 +44,26 @@ export default function RepoInput({ onSubmit, loading }: RepoInputProps) {
       className="overflow-hidden rounded-2xl border border-line bg-panel/95 shadow-panel backdrop-blur"
     >
       <div className="flex items-start justify-between border-b border-line px-6 py-5 sm:px-7">
+        <div>
+          <label htmlFor="provider" className="field-label">AI provider</label>
+          <select id="provider" value={provider} onChange={(event) => { const value = event.target.value as typeof provider; setProvider(value); setModel(value === "gemini" ? "gemini-3.5-flash" : value === "openai" ? "gpt-5.2" : "claude-sonnet-4-20250514"); }} className="field-input" disabled={loading}>
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="model" className="field-label">AI model</label>
+          <select id="model" value={model} onChange={(event) => setModel(event.target.value)} className="field-input font-mono" disabled={loading} required>
+            {provider === "gemini" ? <><option value="gemini-3.6-flash">Gemini 3.6 Flash</option><option value="gemini-3.5-flash">Gemini 3.5 Flash</option><option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option><option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option><option value="gemini-2.5-pro">Gemini 2.5 Pro</option></> : null}
+            {provider === "openai" ? <><option value="gpt-5.2">GPT-5.2</option><option value="gpt-5.1">GPT-5.1</option><option value="gpt-5">GPT-5</option><option value="gpt-5-mini">GPT-5 Mini</option><option value="gpt-5-nano">GPT-5 Nano</option><option value="gpt-5-pro">GPT-5 Pro</option><option value="gpt-4.1">GPT-4.1</option><option value="gpt-4.1-mini">GPT-4.1 Mini</option></> : null}
+            {provider === "anthropic" ? <><option value="claude-opus-4-1-20250805">Claude Opus 4.1</option><option value="claude-sonnet-4-20250514">Claude Sonnet 4</option><option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option></> : null}
+            <option value="custom">Custom model ID…</option>
+          </select>
+          {model === "custom" ? <input value={customModel} onChange={(event) => setCustomModel(event.target.value)} placeholder="Enter provider model ID" className="field-input mt-2 font-mono" disabled={loading} required /> : null}
+        </div>
+
         <div>
           <div className="flex items-center gap-2">
             <Icon name="spark" size={16} className="text-accent" />

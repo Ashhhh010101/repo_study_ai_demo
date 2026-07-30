@@ -1,3 +1,4 @@
+import logging
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
@@ -30,6 +31,7 @@ class RepoService:
         self.report_service = report_service or ReportService()
         self.embedding_service = embedding_service or EmbeddingService()
         self.settings = get_settings()
+        self.logger = logging.getLogger(__name__)
 
     def _set_status(self, db: Session, project: models.RepoProject, status: str, error_message: str | None = None) -> None:
         project.status = status
@@ -37,6 +39,7 @@ class RepoService:
         db.add(project)
         db.commit()
         db.refresh(project)
+        self.logger.info("Analysis project created project_id=%s repo=%s", project.id, repo_name)
 
     def analyze_repository(
         self,
@@ -45,10 +48,16 @@ class RepoService:
         branch: str | None,
         commit: str | None,
         gemini_api_key: SecretStr,
+        model: str | None = None,
+        provider: str = "gemini",
     ) -> tuple[models.RepoProject, models.RepoAnalysis]:
         owner, repo_name = validate_github_url(repo_url)
         branch = validate_branch_name(branch)
         commit = commit.lower() if commit else None
+        if model is not None and model not in self.settings.supported_gemini_models:
+            raise CloneError("The selected AI model is not supported by this deployment.")
+        self.report_service.model = model
+        self.report_service.provider = provider
         canonical_repo_url = f"https://github.com/{owner}/{repo_name}"
         project = models.RepoProject(
             repo_url=canonical_repo_url,
@@ -82,6 +91,7 @@ class RepoService:
                 max_total_bytes=self.settings.max_total_scan_bytes,
             )
             ranked_files = rank_files(scanned_files)
+            self.logger.info("Repository scanned project_id=%s files=%s", project.id, len(ranked_files))
             stack = detect_stack(ranked_files)
             file_tree = build_file_tree(ranked_files)
 
@@ -134,6 +144,7 @@ class RepoService:
                     )
             db.commit()
             self.embedding_service.index_project_chunks(project.id, chunk_payloads)
+            self.logger.info("Repository indexed project_id=%s chunks=%s", project.id, len(chunk_payloads))
 
             self._set_status(db, project, "analyzing")
             important_files = ranked_files[:12]
@@ -166,8 +177,10 @@ class RepoService:
             db.refresh(analysis)
 
             self._set_status(db, project, "completed")
+            self.logger.info("Analysis completed project_id=%s", project.id)
             return project, analysis
         except Exception as exc:
+            self.logger.exception("Analysis failed project_id=%s", project.id)
             if isinstance(exc, (CloneError, ScanLimitError)):
                 safe_error = str(exc)
             else:

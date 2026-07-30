@@ -9,6 +9,8 @@ class RepoAnalyzeRequest(BaseModel):
     branch: str | None = Field(default=None, max_length=255)
     commit: str | None = Field(default=None, min_length=7, max_length=40, pattern=r"^[0-9a-fA-F]+$")
     gemini_api_key: SecretStr = Field(min_length=10, max_length=512)
+    model: str | None = Field(default=None, max_length=100)
+    provider: str = Field(default="gemini", pattern=r"^(gemini|openai|anthropic)$")
 
     model_config = ConfigDict(str_strip_whitespace=True)
 

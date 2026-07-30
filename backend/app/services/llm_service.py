@@ -1,4 +1,5 @@
 import json
+import logging
 
 import httpx
 from pydantic import SecretStr
@@ -14,19 +15,32 @@ class ProviderError(Exception):
 class LLMService:
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.logger = logging.getLogger(__name__)
 
     def generate_text(
         self,
         prompt: str,
         gemini_api_key: SecretStr,
         response_mime_type: str = "text/plain",
+        model: str | None = None,
+        provider: str = "gemini",
     ) -> str:
-        endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.settings.gemini_model}:generateContent"
-        )
+        defaults = {
+            "gemini": self.settings.gemini_model,
+            "openai": "gpt-5.2",
+            "anthropic": "claude-sonnet-4-20250514",
+        }
+        if provider not in defaults:
+            raise ProviderError("The selected AI provider is not supported.")
+        selected_model = model or defaults[provider]
+        if not selected_model or len(selected_model) > 150:
+            raise ProviderError("The selected AI model ID is invalid.")
+        endpoints = {"gemini": f"https://generativelanguage.googleapis.com/v1beta/models/{selected_model}:generateContent", "openai": "https://api.openai.com/v1/chat/completions", "anthropic": "https://api.anthropic.com/v1/messages"}
+        endpoint = endpoints[provider]
+        self.logger.info("LLM request provider=%s model=%s prompt_chars=%s", provider, selected_model, len(prompt))
         raw_api_key = gemini_api_key.get_secret_value().strip()
-        payload = {
+        if provider == "gemini":
+            payload = {
             "contents": [
                 {
                     "parts": [
@@ -43,11 +57,15 @@ class LLMService:
                 "responseMimeType": response_mime_type,
                 "maxOutputTokens": self.settings.gemini_max_output_tokens,
             },
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": raw_api_key,
-        }
+            }
+        elif provider == "openai":
+            payload = {"model": selected_model, "messages": [{"role": "user", "content": redact_sensitive_text(prompt, extra_values=(raw_api_key,))}], "max_tokens": self.settings.gemini_max_output_tokens}
+        else:
+            payload = {"model": selected_model, "max_tokens": self.settings.gemini_max_output_tokens, "messages": [{"role": "user", "content": redact_sensitive_text(prompt, extra_values=(raw_api_key,))}]}
+        headers = {"Content-Type": "application/json"}
+        if provider == "gemini": headers["x-goog-api-key"] = raw_api_key
+        elif provider == "openai": headers["Authorization"] = f"Bearer {raw_api_key}"
+        else: headers.update({"x-api-key": raw_api_key, "anthropic-version": "2023-06-01"})
         try:
             with httpx.Client(
                 timeout=self.settings.request_timeout_seconds,
@@ -55,6 +73,7 @@ class LLMService:
             ) as client:
                 response = client.post(endpoint, headers=headers, json=payload)
                 response.raise_for_status()
+                self.logger.info("LLM response provider=%s model=%s status=%s", provider, selected_model, response.status_code)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code in {401, 403}:
@@ -63,8 +82,10 @@ class LLMService:
                 message = "Gemini rate-limited the request. Try again after the quota resets."
             else:
                 message = f"Gemini returned an upstream error (HTTP {status_code})."
+            self.logger.warning("LLM rejected request provider=%s model=%s status=%s", provider, selected_model, status_code)
             raise ProviderError(message) from None
         except httpx.RequestError as exc:
+            self.logger.warning("LLM connection failed provider=%s model=%s", provider, selected_model)
             raise ProviderError("Gemini could not be reached from the backend.") from None
 
         try:
@@ -72,7 +93,8 @@ class LLMService:
         except ValueError:
             raise ProviderError("Gemini returned an unreadable response.") from None
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            if provider == "gemini": return data["candidates"][0]["content"]["parts"][0]["text"]
+            return data["choices"][0]["message"]["content"] if provider == "openai" else data["content"][0]["text"]
         except (KeyError, IndexError) as exc:
             response_shape = list(data) if isinstance(data, dict) else type(data).__name__
             raise ProviderError(

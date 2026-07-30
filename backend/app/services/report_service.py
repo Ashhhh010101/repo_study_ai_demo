@@ -23,6 +23,8 @@ class ReportService:
     def __init__(self, llm_service: LLMService | None = None) -> None:
         self.llm_service = llm_service or LLMService()
         self.settings = get_settings()
+        self.model: str | None = None
+        self.provider = "gemini"
 
     def summarize_file(self, file_metadata: dict, gemini_api_key: SecretStr) -> dict:
         prompt = FILE_SUMMARY_PROMPT.format(
@@ -31,7 +33,7 @@ class ReportService:
             content=file_metadata["content"][:8000],
         )
         try:
-            raw = self.llm_service.generate_text(prompt, gemini_api_key, "application/json")
+            raw = self.llm_service.generate_text(prompt, gemini_api_key, "application/json", self.model, self.provider)
             return json.loads(raw)
         except Exception:
             return {
@@ -92,7 +94,7 @@ class ReportService:
                 ),
             )
             try:
-                raw = self.llm_service.generate_text(prompt, gemini_api_key, "application/json")
+                raw = self.llm_service.generate_text(prompt, gemini_api_key, "application/json", self.model, self.provider)
                 return folder_path, json.loads(raw)
             except Exception:
                 return folder_path, summarize_folder_from_files(folder_path, items)
@@ -136,7 +138,7 @@ class ReportService:
         )
         prompt = ARCHITECTURE_REPORT_PROMPT.format(context=context)
         try:
-            markdown = self.llm_service.generate_text(prompt, gemini_api_key)
+            markdown = self.llm_service.generate_text(prompt, gemini_api_key, model=self.model, provider=self.provider)
         except Exception:
             markdown = build_basic_markdown_report(repo_name, stack, important_files, folder_summaries)
         return derive_report_fields(markdown, stack, folder_summaries, important_files)
