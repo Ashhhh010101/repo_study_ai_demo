@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import time
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -49,7 +50,14 @@ def create_app() -> FastAPI:
         request: Request,
         call_next: RequestResponseEndpoint,
     ):
-        response = await call_next(request)
+        started = time.perf_counter()
+        logger.info("request.start method=%s path=%s", request.method, request.url.path)
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception("request.error method=%s path=%s duration_ms=%.1f", request.method, request.url.path, (time.perf_counter() - started) * 1000)
+            raise
+        logger.info("request.end method=%s path=%s status=%s duration_ms=%.1f", request.method, request.url.path, response.status_code, (time.perf_counter() - started) * 1000)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"

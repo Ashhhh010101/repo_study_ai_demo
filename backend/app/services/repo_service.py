@@ -1,4 +1,5 @@
 import logging
+import time
 from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
@@ -73,17 +74,22 @@ class RepoService:
 
         try:
             self._set_status(db, project, "cloning")
+            step_started = time.perf_counter()
+            self.logger.info("analysis.step project_id=%s step=clone status=start", project.id)
             cache_key = self.local_repo_store.get_repo_key(canonical_repo_url, branch, commit)
             local_path = self.local_repo_store.get_repo_path(canonical_repo_url, branch, commit)
             with self.local_repo_store.lock_for(cache_key):
                 clone_public_repo(canonical_repo_url, local_path, branch=branch, commit=commit, timeout_seconds=self.settings.clone_timeout_seconds)
                 self.local_repo_store.write_metadata(local_path, canonical_repo_url, branch, commit)
+            self.logger.info("analysis.step project_id=%s step=clone status=complete duration_ms=%.1f", project.id, (time.perf_counter() - step_started) * 1000)
             project.local_path = str(local_path)
             db.add(project)
             db.commit()
             db.refresh(project)
 
             self._set_status(db, project, "scanning")
+            step_started = time.perf_counter()
+            self.logger.info("analysis.step project_id=%s step=scan status=start", project.id)
             scanned_files = scan_repository(
                 local_path,
                 max_file_size_bytes=self.settings.max_file_size_bytes,
@@ -92,6 +98,7 @@ class RepoService:
             )
             ranked_files = rank_files(scanned_files)
             self.logger.info("Repository scanned project_id=%s files=%s", project.id, len(ranked_files))
+            self.logger.info("analysis.step project_id=%s step=scan status=complete duration_ms=%.1f", project.id, (time.perf_counter() - step_started) * 1000)
             stack = detect_stack(ranked_files)
             file_tree = build_file_tree(ranked_files)
 
@@ -99,6 +106,7 @@ class RepoService:
             db.query(models.CodeChunk).filter(models.CodeChunk.project_id == project.id).delete()
             db.query(models.RepoAnalysis).filter(models.RepoAnalysis.project_id == project.id).delete()
             db.commit()
+            self.logger.info("analysis.step project_id=%s step=persist_files status=complete files=%s", project.id, len(file_records_by_path))
 
             file_records_by_path: dict[str, models.RepoFile] = {}
             for file_metadata in ranked_files:
@@ -117,6 +125,8 @@ class RepoService:
             db.commit()
 
             self._set_status(db, project, "indexing")
+            step_started = time.perf_counter()
+            self.logger.info("analysis.step project_id=%s step=index status=start", project.id)
             chunk_payloads: list[dict] = []
             for file_metadata in ranked_files:
                 file_record = file_records_by_path[file_metadata["path"]]
@@ -145,11 +155,15 @@ class RepoService:
             db.commit()
             self.embedding_service.index_project_chunks(project.id, chunk_payloads)
             self.logger.info("Repository indexed project_id=%s chunks=%s", project.id, len(chunk_payloads))
+            self.logger.info("analysis.step project_id=%s step=index status=complete duration_ms=%.1f", project.id, (time.perf_counter() - step_started) * 1000)
 
             self._set_status(db, project, "analyzing")
+            self.logger.info("analysis.step project_id=%s step=file_summaries status=start files=%s", project.id, len(ranked_files[:12]))
             important_files = ranked_files[:12]
             file_summaries = self.report_service.summarize_files(important_files, gemini_api_key)
+            self.logger.info("analysis.step project_id=%s step=file_summaries status=complete", project.id)
             folder_summaries = self.report_service.summarize_folders(file_summaries, gemini_api_key)
+            self.logger.info("analysis.step project_id=%s step=folder_summaries status=complete folders=%s", project.id, len(folder_summaries))
             readme_summary = next(
                 (item["summary_json"] for item in file_summaries if item["path"].lower() == "readme.md"),
                 None,
@@ -170,6 +184,7 @@ class RepoService:
                 readme_summary=readme_summary,
                 gemini_api_key=gemini_api_key,
             )
+            self.logger.info("analysis.step project_id=%s step=architecture_report status=complete", project.id)
 
             analysis = models.RepoAnalysis(project_id=project.id, **report_fields)
             db.add(analysis)
