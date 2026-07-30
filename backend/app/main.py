@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
+from collections import defaultdict, deque
+from threading import Lock
 import time
 from collections.abc import AsyncIterator
 
@@ -29,6 +31,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    request_timestamps: dict[tuple[str, str], deque[float]] = defaultdict(deque)
+    rate_limit_lock = Lock()
     app = FastAPI(
         title="Repo Study AI",
         summary="Local-first repository intelligence with bring-your-own-key AI.",
@@ -56,6 +60,24 @@ def create_app() -> FastAPI:
     ):
         started = time.perf_counter()
         logger.info("request.start method=%s path=%s", request.method, request.url.path)
+        if request.method == "POST" and request.url.path in {"/api/repos/analyze",} or request.method == "POST" and request.url.path.startswith("/api/chat/"):
+            bucket = "analyze" if request.url.path == "/api/repos/analyze" else "chat"
+            limit = settings.analyze_rate_limit if bucket == "analyze" else settings.chat_rate_limit
+            client_host = request.client.host if request.client else "unknown"
+            now = time.monotonic()
+            with rate_limit_lock:
+                timestamps = request_timestamps[(client_host, bucket)]
+                cutoff = now - settings.rate_limit_window_seconds
+                while timestamps and timestamps[0] <= cutoff:
+                    timestamps.popleft()
+                if len(timestamps) >= limit:
+                    retry_after = max(1, int(timestamps[0] + settings.rate_limit_window_seconds - now))
+                    return JSONResponse(
+                        status_code=429,
+                        content={"detail": "Rate limit exceeded. Please try again later."},
+                        headers={"Retry-After": str(retry_after)},
+                    )
+                timestamps.append(now)
         try:
             response = await call_next(request)
         except Exception:

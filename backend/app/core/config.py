@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     analysis_max_workers: int = Field(default=4, ge=1, le=16)
     request_timeout_seconds: int = Field(default=90, ge=5, le=600)
     clone_timeout_seconds: int = Field(default=180, ge=10, le=1_800)
+    rate_limit_window_seconds: int = Field(default=60, ge=10, le=3_600)
+    analyze_rate_limit: int = Field(default=3, ge=1, le=100)
+    chat_rate_limit: int = Field(default=20, ge=1, le=200)
     gemini_model: str = "gemini-3.5-flash"
     supported_gemini_models: list[str] = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash"]
     gemini_max_output_tokens: int = Field(default=8_192, ge=256, le=65_536)
