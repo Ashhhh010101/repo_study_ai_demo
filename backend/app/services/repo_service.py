@@ -54,7 +54,7 @@ class RepoService:
         owner, repo_name = validate_github_url(repo_url)
         branch = validate_branch_name(branch)
         commit = commit.lower() if commit else None
-        if model is not None and model not in self.settings.supported_gemini_models:
+        if provider == "gemini" and model is not None and model not in self.settings.supported_gemini_models:
             raise CloneError("The selected AI model is not supported by this deployment.")
         self.report_service.model = model
         self.report_service.provider = provider

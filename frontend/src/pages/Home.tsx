@@ -44,7 +44,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void apiClient.recordVisit().catch(() => undefined);
+    const visitRecorded = "repo-study-ai-visit-recorded";
+    if (!sessionStorage.getItem(visitRecorded)) {
+      sessionStorage.setItem(visitRecorded, "1");
+      void apiClient.recordVisit().catch(() => undefined);
+    }
   }, []);
 
   async function handleAnalyze(payload: {

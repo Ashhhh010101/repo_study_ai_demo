@@ -12,7 +12,7 @@ def summarize_folder_from_files(folder_path: str, file_summaries: list[dict]) ->
         if purpose:
             responsibilities.append(f"{item['path']}: {purpose}")
     return {
-        "folder_purpose": responsibilities[0] if responsibilities else "Not enough context.",
+        "folder_purpose": responsibilities[0] if responsibilities else "No file summary established this folder's purpose.",
         "modules": [item["path"] for item in file_summaries[:8]],
         "important_files": [item["path"] for item in important_files],
         "how_it_fits": f"Contains {len(file_summaries)} scanned files under {folder_path}.",
@@ -87,7 +87,7 @@ def build_basic_markdown_report(
     folder_summaries: dict,
 ) -> str:
     folders_markdown = "\n".join(
-        f"- `{folder}`: {summary.get('folder_purpose', 'Not enough context.')}"
+        f"- `{folder}`: {summary.get('folder_purpose', 'No folder purpose was established from scanned files.')}"
         for folder, summary in folder_summaries.items()
     )
     important_markdown = "\n".join(
@@ -106,10 +106,10 @@ Confirmed from code: {json.dumps(stack)}
 Inferred: Review README and package/dependency files for exact commands.
 
 ## 4. Folder-by-Folder Explanation
-{folders_markdown or "- Not enough context."}
+{folders_markdown or "- No folder summaries were produced from the scanned files."}
 
 ## 5. Important Files
-{important_markdown or "- Not enough context."}
+{important_markdown or "- No important files were identified by the scanner."}
 
 ## 6. Backend Flow
 Inferred from file layout and important modules.

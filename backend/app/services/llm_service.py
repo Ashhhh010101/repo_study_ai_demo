@@ -77,26 +77,26 @@ class LLMService:
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code in {401, 403}:
-                message = "Gemini rejected the API key or the key lacks API access."
+                message = f"{provider.title()} rejected the API key or the key lacks API access."
             elif status_code == 429:
-                message = "Gemini rate-limited the request. Try again after the quota resets."
+                message = f"{provider.title()} rate-limited the request. Try again after the quota resets."
             else:
-                message = f"Gemini returned an upstream error (HTTP {status_code})."
+                message = f"{provider.title()} returned an upstream error (HTTP {status_code})."
             self.logger.warning("LLM rejected request provider=%s model=%s status=%s", provider, selected_model, status_code)
             raise ProviderError(message) from None
         except httpx.RequestError as exc:
             self.logger.warning("LLM connection failed provider=%s model=%s", provider, selected_model)
-            raise ProviderError("Gemini could not be reached from the backend.") from None
+            raise ProviderError(f"{provider.title()} could not be reached from the backend.") from None
 
         try:
             data = response.json()
         except ValueError:
-            raise ProviderError("Gemini returned an unreadable response.") from None
+            raise ProviderError(f"{provider.title()} returned an unreadable response.") from None
         try:
             if provider == "gemini": return data["candidates"][0]["content"]["parts"][0]["text"]
             return data["choices"][0]["message"]["content"] if provider == "openai" else data["content"][0]["text"]
         except (KeyError, IndexError) as exc:
             response_shape = list(data) if isinstance(data, dict) else type(data).__name__
             raise ProviderError(
-                f"Gemini returned an unexpected response shape: {json.dumps(response_shape)}"
+                f"{provider.title()} returned an unexpected response shape: {json.dumps(response_shape)}"
             ) from exc

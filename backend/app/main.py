@@ -60,10 +60,16 @@ def create_app() -> FastAPI:
     ):
         started = time.perf_counter()
         logger.info("request.start method=%s path=%s", request.method, request.url.path)
-        if request.method == "POST" and request.url.path in {"/api/repos/analyze",} or request.method == "POST" and request.url.path.startswith("/api/chat/"):
-            bucket = "analyze" if request.url.path == "/api/repos/analyze" else "chat"
+        is_analyze = request.method == "POST" and request.url.path == "/api/repos/analyze"
+        is_chat = request.method == "POST" and request.url.path.startswith("/api/chat/")
+        is_visit = request.method == "POST" and request.url.path == "/api/stats/visit"
+        if is_analyze or is_chat or is_visit:
+            bucket = "analyze" if is_analyze else "chat" if is_chat else "visit"
             limit = settings.analyze_rate_limit if bucket == "analyze" else settings.chat_rate_limit
-            client_host = request.client.host if request.client else "unknown"
+            if bucket == "visit":
+                limit = settings.visit_rate_limit
+            forwarded_for = request.headers.get("x-forwarded-for", "")
+            client_host = forwarded_for.split(",", 1)[0].strip() or (request.client.host if request.client else "unknown")
             now = time.monotonic()
             with rate_limit_lock:
                 timestamps = request_timestamps[(client_host, bucket)]
