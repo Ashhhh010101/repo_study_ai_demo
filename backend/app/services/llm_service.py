@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import httpx
 from pydantic import SecretStr
@@ -33,7 +34,9 @@ class LLMService:
         if provider not in defaults:
             raise ProviderError("The selected AI provider is not supported.")
         selected_model = model or defaults[provider]
-        if not selected_model or len(selected_model) > 150:
+        if not selected_model or len(selected_model) > 150 or not re.fullmatch(
+            r"[A-Za-z0-9._:/-]+", selected_model
+        ):
             raise ProviderError("The selected AI model ID is invalid.")
         endpoints = {"gemini": f"https://generativelanguage.googleapis.com/v1beta/models/{selected_model}:generateContent", "openai": "https://api.openai.com/v1/chat/completions", "anthropic": "https://api.anthropic.com/v1/messages"}
         endpoint = endpoints[provider]

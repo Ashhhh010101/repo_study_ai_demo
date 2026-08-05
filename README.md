@@ -141,6 +141,12 @@ Backend settings are documented in [`backend/.env.example`](backend/.env.example
 | `ANALYSIS_MAX_WORKERS` | `4` | Concurrent provider summaries |
 | `REQUEST_TIMEOUT_SECONDS` | `90` | Gemini request timeout |
 | `CLONE_TIMEOUT_SECONDS` | `180` | Git clone timeout |
+| `MAX_REPO_CLONE_BYTES` | `200000000` | Preflight and post-clone repository size cap |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | In-memory rate-limit window |
+| `ANALYZE_RATE_LIMIT` | `3` | Analyses allowed per client and window |
+| `CHAT_RATE_LIMIT` | `20` | Chat requests allowed per client and window |
+| `VISIT_RATE_LIMIT` | `10` | Visit events allowed per client and window |
+| `RATE_LIMIT_MAX_CLIENTS` | `10000` | Maximum in-memory client rate-limit buckets |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `8192` | Provider response cap |
 | `LLM_TEMPERATURE` | `0.1` | Low-variance generation for consistent reports |
@@ -159,6 +165,7 @@ If the frontend is served from another origin, explicitly add it to `CORS_ORIGIN
 - Common secret values are redacted before outbound prompts. This is defense in depth, not a guarantee that every possible secret format is recognized.
 - Repository files and chat history are local data, but selected repository excerpts, report context, and questions are sent to Gemini.
 - Markdown is rendered without raw HTML execution.
+- Each analysis returns an opaque project token. Report, file, and chat endpoints require it in the `X-Project-Token` header; the frontend keeps it in session storage for the current tab.
 
 Read [SECURITY.md](SECURITY.md) before deploying or extending support to private repositories.
 

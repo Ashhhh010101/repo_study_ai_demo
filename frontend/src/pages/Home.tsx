@@ -62,6 +62,10 @@ export default function Home() {
     try {
       const result = await apiClient.analyzeRepo(payload);
       setApiKey(payload.gemini_api_key);
+      sessionStorage.setItem(
+        `repo-study-ai-project:${result.project_id}`,
+        result.access_token
+      );
       navigate(`/projects/${result.project_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected analysis error.");

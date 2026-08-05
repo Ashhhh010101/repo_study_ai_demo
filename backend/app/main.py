@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
-from collections import defaultdict, deque
+from collections import deque
 from threading import Lock
 import time
 from collections.abc import AsyncIterator
@@ -31,7 +31,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    request_timestamps: dict[tuple[str, str], deque[float]] = defaultdict(deque)
+    request_timestamps: dict[tuple[str, str], deque[float]] = {}
     rate_limit_lock = Lock()
     app = FastAPI(
         title="Repo Study AI",
@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Project-Token"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
@@ -68,12 +68,26 @@ def create_app() -> FastAPI:
             limit = settings.analyze_rate_limit if bucket == "analyze" else settings.chat_rate_limit
             if bucket == "visit":
                 limit = settings.visit_rate_limit
-            forwarded_for = request.headers.get("x-forwarded-for", "")
-            client_host = forwarded_for.split(",", 1)[0].strip() or (request.client.host if request.client else "unknown")
+            client_host = request.client.host if request.client else "unknown"
             now = time.monotonic()
             with rate_limit_lock:
-                timestamps = request_timestamps[(client_host, bucket)]
                 cutoff = now - settings.rate_limit_window_seconds
+                key = (client_host, bucket)
+                if key not in request_timestamps and len(request_timestamps) >= settings.rate_limit_max_clients:
+                    stale_keys = [
+                        existing_key
+                        for existing_key, values in request_timestamps.items()
+                        if not values or values[-1] <= cutoff
+                    ]
+                    for stale_key in stale_keys:
+                        request_timestamps.pop(stale_key, None)
+                    if len(request_timestamps) >= settings.rate_limit_max_clients:
+                        return JSONResponse(
+                            status_code=503,
+                            content={"detail": "The service is temporarily at capacity."},
+                            headers={"Retry-After": str(settings.rate_limit_window_seconds)},
+                        )
+                timestamps = request_timestamps.setdefault(key, deque())
                 while timestamps and timestamps[0] <= cutoff:
                     timestamps.popleft()
                 if len(timestamps) >= limit:

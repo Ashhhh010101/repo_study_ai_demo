@@ -4,6 +4,7 @@ from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.project_access import create_project_token
 from app.db import models
 from app.repo_analyzer.chunker import chunk_file
 from app.repo_analyzer.cloner import (
@@ -50,7 +51,7 @@ class RepoService:
         gemini_api_key: SecretStr,
         model: str | None = None,
         provider: str = "gemini",
-    ) -> tuple[models.RepoProject, models.RepoAnalysis]:
+    ) -> tuple[models.RepoProject, models.RepoAnalysis, str]:
         owner, repo_name = validate_github_url(repo_url)
         branch = validate_branch_name(branch)
         commit = commit.lower() if commit else None
@@ -59,6 +60,7 @@ class RepoService:
         self.report_service.model = model
         self.report_service.provider = provider
         canonical_repo_url = f"https://github.com/{owner}/{repo_name}"
+        access_token, access_token_hash = create_project_token()
         project = models.RepoProject(
             repo_url=canonical_repo_url,
             repo_name=repo_name,
@@ -66,6 +68,7 @@ class RepoService:
             commit=commit,
             local_path="",
             status="pending",
+            access_token_hash=access_token_hash,
         )
         db.add(project)
         db.commit()
@@ -79,7 +82,14 @@ class RepoService:
             cache_key = self.local_repo_store.get_repo_key(canonical_repo_url, branch, commit)
             local_path = self.local_repo_store.get_repo_path(canonical_repo_url, branch, commit)
             with self.local_repo_store.lock_for(cache_key):
-                clone_public_repo(canonical_repo_url, local_path, branch=branch, commit=commit, timeout_seconds=self.settings.clone_timeout_seconds)
+                clone_public_repo(
+                    canonical_repo_url,
+                    local_path,
+                    branch=branch,
+                    commit=commit,
+                    timeout_seconds=self.settings.clone_timeout_seconds,
+                    max_clone_bytes=self.settings.max_repo_clone_bytes,
+                )
                 self.local_repo_store.write_metadata(local_path, canonical_repo_url, branch, commit)
             self.logger.info("analysis.step project_id=%s step=clone status=complete duration_ms=%.1f", project.id, (time.perf_counter() - step_started) * 1000)
             project.local_path = str(local_path)
@@ -192,7 +202,7 @@ class RepoService:
 
             self._set_status(db, project, "completed")
             self.logger.info("Analysis completed project_id=%s", project.id)
-            return project, analysis
+            return project, analysis, access_token
         except Exception as exc:
             self.logger.exception("Analysis failed project_id=%s", project.id)
             if isinstance(exc, (CloneError, ScanLimitError)):

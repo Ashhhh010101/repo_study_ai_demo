@@ -29,17 +29,23 @@ export default function RepoReport({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [model, setModel] = useState("gemini-2.5-flash");
+  const accessToken = sessionStorage.getItem(`repo-study-ai-project:${projectId}`) ?? "";
 
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       setError(null);
+      if (!accessToken) {
+        setError("This report link is missing its temporary access token. Start a new analysis in this tab.");
+        setLoading(false);
+        return;
+      }
       try {
         const [projectData, reportData, filesData] = await Promise.all([
-          apiClient.getProject(projectId),
-          apiClient.getReport(projectId),
-          apiClient.getFiles(projectId)
+          apiClient.getProject(projectId, accessToken),
+          apiClient.getReport(projectId, accessToken),
+          apiClient.getFiles(projectId, accessToken)
         ]);
         if (!active) {
           return;
@@ -63,7 +69,7 @@ export default function RepoReport({ projectId }: { projectId: string }) {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [accessToken, projectId]);
 
   const languageCount = useMemo(
     () => new Set(files.map((file) => file.language).filter(Boolean)).size,
@@ -103,7 +109,7 @@ export default function RepoReport({ projectId }: { projectId: string }) {
   }
 
   async function handleAsk(message: string) {
-    return apiClient.askQuestion(projectId, {
+    return apiClient.askQuestion(projectId, accessToken, {
       message,
       gemini_api_key: apiKey
       , model
