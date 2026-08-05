@@ -143,6 +143,9 @@ Backend settings are documented in [`backend/.env.example`](backend/.env.example
 | `CLONE_TIMEOUT_SECONDS` | `180` | Git clone timeout |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `8192` | Provider response cap |
+| `LLM_TEMPERATURE` | `0.1` | Low-variance generation for consistent reports |
+| `SUMMARY_CACHE_ENTRIES` | `512` | In-memory validated file-summary cache size |
+| `LLM_TEMPERATURE` | `0.1` | Low-variance generation for consistent reports |
 | `CORS_ORIGINS` | local Vite origins | JSON list of allowed browser origins |
 | `ALLOWED_HOSTS` | local hosts | JSON list of accepted Host headers |
 

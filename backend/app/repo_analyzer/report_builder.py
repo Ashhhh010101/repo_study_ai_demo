@@ -16,6 +16,8 @@ def summarize_folder_from_files(folder_path: str, file_summaries: list[dict]) ->
         "modules": [item["path"] for item in file_summaries[:8]],
         "important_files": [item["path"] for item in important_files],
         "how_it_fits": f"Contains {len(file_summaries)} scanned files under {folder_path}.",
+        "confidence": "low",
+        "evidence": [item["path"] for item in important_files],
     }
 
 
@@ -42,7 +44,11 @@ def _section(markdown_report: str, heading: str, fallback: str) -> str:
     """Extract a numbered markdown section without exposing UI placeholder text."""
     lines = markdown_report.splitlines()
     start = next(
-        (index for index, line in enumerate(lines) if line.strip().lower().startswith(heading.lower())),
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip().lstrip("#").strip().lower().startswith(heading.lower())
+        ),
         None,
     )
     if start is None:
@@ -102,39 +108,54 @@ Confirmed from code: The repository was analyzed from its current file tree and 
 ## 2. Tech Stack
 Confirmed from code: {json.dumps(stack)}
 
-## 3. How To Run Locally
-Inferred: Review README and package/dependency files for exact commands.
+## 3. System Context and Actors
+Confirmed actors and boundaries could not be fully established without a provider response; review the important files below.
 
-## 4. Folder-by-Folder Explanation
-{folders_markdown or "- No folder summaries were produced from the scanned files."}
+## 4. Runtime Architecture and Component Responsibilities
+The scanner identified the important modules below, but a complete runtime relationship map was not produced.
 
-## 5. Important Files
+## 5. End-to-End Request and Data Flows
+No end-to-end request flow was confirmed by the local fallback.
+
+## 6. Frontend Architecture and State Flow
+Review detected frontend entrypoints and the important-file list when present.
+
+## 7. Backend/API Architecture
+Review detected backend entrypoints, routes, and services when present.
+
+## 8. Data Model, Persistence, Caching, and Indexing
+Review detected database, storage, and indexing files when present.
+
+## 9. Integration and External Service Boundaries
+No complete integration map was confirmed by the local fallback.
+
+## 10. Authentication, Authorization, Secrets, and Threat Model
+No authentication or authorization behavior was confirmed by the local fallback.
+
+## 11. Reliability, Concurrency, Failure Handling, and Recovery
+No complete reliability analysis was produced by the local fallback.
+
+## 12. Scalability and Performance Considerations
+Repository size and detected stack are available, but runtime scaling behavior was not confirmed.
+
+## 13. Deployment, Configuration, and Operations
+Review README and dependency/configuration files for repository-specific commands and environment variables.
+
+## 14. Important Production Files (with why each matters)
 {important_markdown or "- No important files were identified by the scanner."}
 
-## 6. Backend Flow
-Inferred from file layout and important modules.
+## 15. Folder-by-Folder Explanation
+{folders_markdown or "- No folder summaries were produced from the scanned files."}
 
-## 7. Frontend Flow
-Inferred from file layout and important modules.
+## 16. How To Run Locally
+Review README and package/dependency files for exact commands; the local fallback does not infer commands.
 
-## 8. Database Flow
-State database-related files if present; otherwise insufficient context.
-
-## 9. Authentication Flow if found
-No confirmed authentication flow found unless auth files were detected.
-
-## 10. External Services if found
-No confirmed external service list beyond detected config and code references.
-
-## 11. Architecture Summary
-This report should be refined by the LLM when available; otherwise it remains a grounded structural summary.
-
-## 12. Recommended Reading Order
+## 17. Recommended Reading Order
 {important_markdown or "- Start with README.md if present."}
 
-## 13. Risks / Unknowns
-This local fallback report avoids guessing when file evidence is limited.
+## 18. Risks, Trade-offs, and Unknowns
+The provider report was unavailable or failed validation, so runtime relationships remain unconfirmed.
 
-## 14. Developer Onboarding Notes
+## 19. Developer Onboarding Notes
 Start from README, entrypoints, config, routes/services, and core domain modules.
 """

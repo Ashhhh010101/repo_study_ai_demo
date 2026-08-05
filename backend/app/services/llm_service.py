@@ -56,6 +56,8 @@ class LLMService:
             "generationConfig": {
                 "responseMimeType": response_mime_type,
                 "maxOutputTokens": self.settings.gemini_max_output_tokens,
+                "temperature": self.settings.llm_temperature,
+                "topP": 0.8,
             },
             }
         elif provider == "openai":

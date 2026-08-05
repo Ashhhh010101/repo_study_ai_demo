@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     supported_gemini_models: list[str] = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash"]
     gemini_max_output_tokens: int = Field(default=8_192, ge=256, le=65_536)
+    llm_temperature: float = Field(default=0.1, ge=0.0, le=1.0)
+    summary_cache_entries: int = Field(default=512, ge=0, le=10_000)
     cors_origins: list[str] = [
         "http://127.0.0.1:5173",
         "http://localhost:5173",
