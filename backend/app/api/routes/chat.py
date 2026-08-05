@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.db.session import get_db
+from app.core.project_access import require_project_access
 from app.repo_analyzer.prompt_manager import REPO_QA_PROMPT
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.llm_service import LLMService, ProviderError
@@ -12,10 +13,12 @@ router = APIRouter()
 
 
 @router.post("/{project_id}", response_model=ChatResponse)
-def chat_with_repo(project_id: int, payload: ChatRequest, db: Session = Depends(get_db)):
-    project = db.query(models.RepoProject).filter(models.RepoProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+def chat_with_repo(
+    project_id: int,
+    payload: ChatRequest,
+    db: Session = Depends(get_db),
+    project: models.RepoProject = Depends(require_project_access),
+):
 
     analysis = db.query(models.RepoAnalysis).filter(models.RepoAnalysis.project_id == project_id).first()
     if not analysis:

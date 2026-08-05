@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4_000)
     gemini_api_key: SecretStr = Field(min_length=10, max_length=512)
-    model: str | None = Field(default=None, max_length=100)
+    model: str | None = Field(default=None, max_length=100, pattern=r"^[A-Za-z0-9._:/-]+$")
     provider: str = Field(default="gemini", pattern=r"^(gemini|openai|anthropic)$")
 
     model_config = ConfigDict(str_strip_whitespace=True)

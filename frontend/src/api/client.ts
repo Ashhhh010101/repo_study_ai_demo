@@ -68,18 +68,25 @@ export const apiClient = {
       body: JSON.stringify(payload)
     });
   },
-  getProject(projectId: string) {
-    return request<RepoProject>(`/api/repos/${encodeURIComponent(projectId)}`);
+  getProject(projectId: string, accessToken: string) {
+    return request<RepoProject>(`/api/repos/${encodeURIComponent(projectId)}`, {
+      headers: { "X-Project-Token": accessToken }
+    });
   },
-  getReport(projectId: string) {
-    return request<RepoAnalysis>(`/api/repos/${encodeURIComponent(projectId)}/report`);
+  getReport(projectId: string, accessToken: string) {
+    return request<RepoAnalysis>(`/api/repos/${encodeURIComponent(projectId)}/report`, {
+      headers: { "X-Project-Token": accessToken }
+    });
   },
-  getFiles(projectId: string) {
-    return request<RepoFilesResponse>(`/api/repos/${encodeURIComponent(projectId)}/files`);
+  getFiles(projectId: string, accessToken: string) {
+    return request<RepoFilesResponse>(`/api/repos/${encodeURIComponent(projectId)}/files`, {
+      headers: { "X-Project-Token": accessToken }
+    });
   },
-  askQuestion(projectId: string, payload: ChatRequest) {
+  askQuestion(projectId: string, accessToken: string, payload: ChatRequest) {
     return request<ChatResponse>(`/api/chat/${encodeURIComponent(projectId)}`, {
       method: "POST",
+      headers: { "X-Project-Token": accessToken },
       body: JSON.stringify(payload)
     });
   }

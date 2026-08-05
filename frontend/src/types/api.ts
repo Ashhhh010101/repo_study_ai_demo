@@ -56,6 +56,7 @@ export type RepoAnalysis = {
 
 export type AnalyzeResponse = {
   project_id: number;
+  access_token: string;
   status: string;
   report: RepoAnalysis;
 };

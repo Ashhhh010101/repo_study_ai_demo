@@ -4,7 +4,12 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.security import redact_sensitive_text
-from app.repo_analyzer.cloner import CloneError, validate_branch_name, validate_github_url
+from app.repo_analyzer.cloner import (
+    CloneError,
+    _directory_exceeds_limit,
+    validate_branch_name,
+    validate_github_url,
+)
 from app.repo_analyzer.scanner import ScanLimitError, scan_repository
 from app.schemas.repo import RepoAnalyzeRequest, RepoProjectResponse
 from app.services.llm_service import LLMService
@@ -22,7 +27,9 @@ def test_byok_schema_redacts_secret_representation():
 
 
 def test_project_api_schema_does_not_expose_server_path():
-    assert "local_path" not in RepoProjectResponse.model_json_schema()["properties"]
+    properties = RepoProjectResponse.model_json_schema()["properties"]
+    assert "local_path" not in properties
+    assert "access_token_hash" not in properties
 
 
 def test_supported_repository_and_branch_validation():
@@ -58,6 +65,20 @@ def test_sensitive_values_are_redacted_before_provider_calls():
     assert "a-very-sensitive-application-value" not in result
     assert github_token not in result
     assert "[REDACTED]" in result
+
+
+def test_additional_provider_tokens_and_high_entropy_secrets_are_redacted():
+    slack_token = "xox" + "b-1234567890-abcdefghijklmnopqrstuvwxyz"
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstuvwxyz"
+    database_secret = "R4nd0mHighEntropyDatabaseCredentialValue987654"
+
+    result = redact_sensitive_text(
+        f"slack={slack_token}\njwt={jwt}\ndatabase_url={database_secret}"
+    )
+
+    assert slack_token not in result
+    assert jwt not in result
+    assert database_secret not in result
 
 
 def test_provider_key_uses_header_and_never_enters_url_or_prompt(monkeypatch):
@@ -125,6 +146,22 @@ def test_scanner_enforces_repository_limits(tmp_path: Path):
             max_file_size_bytes=10_000,
             max_files=1,
             max_total_bytes=10_000,
+        )
+
+
+def test_clone_directory_size_guard(tmp_path: Path):
+    (tmp_path / "large.bin").write_bytes(b"x" * 101)
+
+    assert _directory_exceeds_limit(tmp_path, 100)
+    assert not _directory_exceeds_limit(tmp_path, 101)
+
+
+def test_model_identifier_rejects_url_query_characters():
+    with pytest.raises(ValueError):
+        RepoAnalyzeRequest(
+            repo_url="https://github.com/openai/openai-python",
+            gemini_api_key="provider-key-value",
+            model="models/gemini?redirect=unsafe",
         )
 
 

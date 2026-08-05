@@ -22,6 +22,7 @@ class RepoProject(Base, TimestampMixin):
     local_path: Mapped[str] = mapped_column(String(500), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     error_message: Mapped[str | None] = mapped_column(Text)
+    access_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )

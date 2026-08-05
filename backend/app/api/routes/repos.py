@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.db.session import get_db
+from app.core.project_access import require_project_access
 from app.repo_analyzer.cloner import CloneError
 from app.repo_analyzer.context_builder import build_file_tree
 from app.repo_analyzer.scanner import ScanLimitError
@@ -25,7 +26,7 @@ def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
     logger.info("Analysis requested provider=%s model=%s branch=%s pinned_commit=%s", payload.provider, payload.model or "default", payload.branch or "default", bool(payload.commit))
     service = RepoService()
     try:
-        project, analysis = service.analyze_repository(
+        project, analysis, access_token = service.analyze_repository(
             db=db,
             repo_url=payload.repo_url,
             branch=payload.branch,
@@ -42,21 +43,25 @@ def analyze_repo(payload: RepoAnalyzeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Repository analysis failed. Review backend logs.") from exc
     return AnalyzeResponse(
         project_id=project.id,
+        access_token=access_token,
         status=project.status,
         report=RepoAnalysisResponse.model_validate(analysis),
     )
 
 
 @router.get("/{project_id}", response_model=RepoProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.RepoProject).filter(models.RepoProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+def get_project(
+    project: models.RepoProject = Depends(require_project_access),
+):
     return project
 
 
 @router.get("/{project_id}/report", response_model=RepoAnalysisResponse)
-def get_project_report(project_id: int, db: Session = Depends(get_db)):
+def get_project_report(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: models.RepoProject = Depends(require_project_access),
+):
     analysis = db.query(models.RepoAnalysis).filter(models.RepoAnalysis.project_id == project_id).first()
     if not analysis:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -64,10 +69,11 @@ def get_project_report(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{project_id}/files")
-def get_project_files(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.RepoProject).filter(models.RepoProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+def get_project_files(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: models.RepoProject = Depends(require_project_access),
+):
 
     files = (
         db.query(models.RepoFile)
